@@ -13,15 +13,18 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     private final JpaUserDetailsService jpaUserDetailsService;
+    private final JwtAuthFilter jwtAuthFilter;
 
-    public SecurityConfig(JpaUserDetailsService jpaUserDetailsService) {
+    public SecurityConfig(JpaUserDetailsService jpaUserDetailsService, JwtAuthFilter jwtAuthFilter) {
         this.jpaUserDetailsService = jpaUserDetailsService;
+        this.jwtAuthFilter = jwtAuthFilter;
     }
 
     @Bean
@@ -34,7 +37,8 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // YENİ: Oluşturduğumuz AuthenticationProvider'ı Spring'e tanıtıyoruz.
-                .authenticationProvider(authenticationProvider());
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
