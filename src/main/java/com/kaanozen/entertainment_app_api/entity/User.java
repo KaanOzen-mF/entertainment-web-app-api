@@ -1,12 +1,11 @@
 package com.kaanozen.entertainment_app_api.entity;
 
-import com.kaanozen.entertainment_app_api.entity.MediaContent;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails; // Import et
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection; // Import et
 import java.util.HashSet;
@@ -29,13 +28,10 @@ public class User implements UserDetails { // UserDetails arayüzünü implement
     @Column(nullable = false)
     private String password;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "bookmarks",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "media_content_id")
-    )
-    private Set<MediaContent> bookmarkedContent = new HashSet<>();
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "bookmarks", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "tmdb_id")
+    private Set<Integer> bookmarkedTmdbIds = new HashSet<>();
 
     // --- UserDetails METOTLARI ---
     // Bu metotlar, kullanıcı rolleri ve hesap durumu gibi detayları yönetir.
