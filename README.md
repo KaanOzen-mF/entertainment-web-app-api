@@ -101,13 +101,13 @@ spring.jpa.hibernate.ddl-auto=update
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 
 # JWT Secret Key (must be a long, secure, Base64-encoded string)
-jwt.secret.key=b3VyLXNlY3JldC1rZXktZm9yLWp3dC1zaWduYXR1cmUtbmVlZHMtdG8tYmUtbG9uZy1hbmQtc2VjdXJlCg==
+jwt.secret.key=JWT_SECRET_KEY_BASE64
 
 # Logging Levels for Debugging (Optional)
 logging.level.org.springframework.web=DEBUG
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
-
+```
 # Security
 - Password Hashing: User passwords are not stored in plain text. They are securely hashed using BCrypt via BCryptPasswordEncoder.
 - Authentication: The API uses stateless JWT-based authentication. The login endpoint provides a token that must be included in the Authorization header for all protected endpoints.
