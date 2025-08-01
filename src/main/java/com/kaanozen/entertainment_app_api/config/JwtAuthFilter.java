@@ -16,7 +16,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-@Component // Bu sınıfın bir Spring Bean'i olduğunu belirtiyoruz.
+/**
+ * A custom Spring Security filter that intercepts every incoming HTTP request to validate the JWT.
+ * This filter runs once per request and is responsible for authenticating the user
+ * based on the token found in the 'Authorization' header.
+ */
+@Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -27,6 +32,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
+    /**
+     * The core logic of the filter. It checks for a JWT in the request, validates it,
+     * and sets the user's authentication in the Spring Security context if the token is valid.
+     *
+     * @param request The incoming HTTP request.
+     * @param response The HTTP response.
+     * @param filterChain The chain of filters to pass the request along to.
+     * @throws ServletException If a servlet-specific error occurs.
+     * @throws IOException If an I/O error occurs.
+     */
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -37,35 +52,40 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // 1. Authorization header'ı var mı ve "Bearer " ile başlıyor mu diye kontrol et.
+        // 1. Check if the Authorization header is present and correctly formatted (starts with "Bearer ").
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response); // Eğer yoksa, zincirdeki bir sonraki filtreye devam et.
+            // If not, pass the request to the next filter in the chain and stop processing.
+            filterChain.doFilter(request, response);
             return;
         }
 
-        // 2. "Bearer " kısmını atarak sadece token'ı al.
+        // 2. Extract the JWT from the header by removing the "Bearer " prefix.
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt); // Token'dan kullanıcı email'ini çıkar.
+        // 3. Extract the user's email (which is the 'subject' of the token) from the JWT.
+        userEmail = jwtService.extractUsername(jwt);
 
-        // 3. Email var mı ve kullanıcı daha önce authenticate olmamış mı diye kontrol et.
+        // 4. Check if an email was extracted and if the user is not already authenticated.
+        //    The second check prevents re-authenticating on every filter in the chain for a single request.
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            // 5. Load the user details from the database using the email.
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            // 4. Token geçerli mi diye kontrol et.
+            // 6. Validate the token against the user details (checks signature and expiration).
             if (jwtService.isTokenValid(jwt, userDetails)) {
-                // Eğer geçerliyse, kullanıcıyı authenticate et.
+                // 7. If the token is valid, create an authentication token.
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
-                        null,
+                        null, // Credentials are not needed as the user is already authenticated by the token.
                         userDetails.getAuthorities()
                 );
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
-                // SecurityContextHolder'ı güncelle.
+                // 8. Update the Spring Security context with the new authentication token.
+                //    This officially marks the user as authenticated for this request.
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
-        // 5. Zincirdeki bir sonraki filtreye devam et.
+        // 9. Pass the request to the next filter in the chain.
         filterChain.doFilter(request, response);
     }
 }

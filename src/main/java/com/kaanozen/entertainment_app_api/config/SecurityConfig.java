@@ -20,6 +20,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+/**
+ * Main security configuration class for the application.
+ * This class enables web security and defines the rules for authentication,
+ * authorization, CORS, and session management.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -32,52 +37,93 @@ public class SecurityConfig {
         this.jwtAuthFilter = jwtAuthFilter;
     }
 
+    /**
+     * Defines the main security filter chain that applies to all HTTP requests.
+     * This is where we configure which endpoints are public and which are protected.
+     *
+     * @param http The HttpSecurity object to configure.
+     * @return The configured SecurityFilterChain.
+     * @throws Exception If an error occurs during configuration.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // Enable CORS using the custom configuration defined in the corsConfigurationSource bean.
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // Disable CSRF (Cross-Site Request Forgery) protection, as we are using stateless JWT authentication.
                 .csrf(csrf -> csrf.disable())
+                // Define authorization rules for HTTP requests.
                 .authorizeHttpRequests(auth -> auth
+                        // Allow unauthenticated access to all endpoints under "/api/v1/auth/" (e.g., login, register).
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // Require authentication for all other requests.
                         .anyRequest().authenticated()
                 )
+                // Configure session management to be STATELESS. The server will not create or use HTTP sessions.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Set the custom authentication provider.
                 .authenticationProvider(authenticationProvider())
+                // Add our custom JWT filter to be executed before the standard username/password authentication filter.
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    /**
+     * Configures the global CORS (Cross-Origin Resource Sharing) policy for the application.
+     *
+     * @return A CorsConfigurationSource with the defined rules.
+     */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Sadece frontend uygulamamızdan gelen isteklere izin veriyoruz.
+        // Allow requests specifically from our frontend application's origin.
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        // İzin verilen HTTP metotları (GET, POST, vb.)
+        // Specify the allowed HTTP methods.
         configuration.setAllowedMethods(Arrays.asList("GET","POST", "PUT", "DELETE", "OPTIONS"));
-        // İzin verilen HTTP başlıkları
+        // Specify the allowed HTTP headers.
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Bu kuralları projedeki tüm endpoint'ler ('/**') için geçerli yap.
+        // Apply this CORS configuration to all routes in the application.
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
+    /**
+     * Creates the AuthenticationProvider bean.
+     * This provider links our custom UserDetailsService (for finding users)
+     * with our PasswordEncoder (for verifying passwords).
+     *
+     * @return The configured DaoAuthenticationProvider.
+     */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        // Kullanıcıları bulmak için hangi servisi kullanacağını söylüyoruz.
+        // Set the service that Spring Security will use to load user details.
         authProvider.setUserDetailsService(jpaUserDetailsService);
-        // Şifreleri doğrulamak için hangi encoder'ı kullanacağını söylüyoruz.
+        // Set the password encoder that Spring Security will use to hash and verify passwords.
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
 
+    /**
+     * Creates the PasswordEncoder bean, which uses the strong BCrypt hashing algorithm.
+     *
+     * @return A BCryptPasswordEncoder instance.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Exposes the AuthenticationManager as a bean, which is required for the
+     * authentication process in our AuthService.
+     *
+     * @param authenticationConfiguration The authentication configuration.
+     * @return The AuthenticationManager.
+     * @throws Exception If an error occurs.
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();

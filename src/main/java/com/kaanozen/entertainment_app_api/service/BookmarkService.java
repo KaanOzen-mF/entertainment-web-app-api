@@ -34,8 +34,10 @@ public class BookmarkService {
     @Transactional
     public void addBookmark(Integer tmdbId) {
         User currentUser = getCurrentUser();
-        currentUser.getBookmarkedTmdbIds().add(tmdbId);
-        userRepository.save(currentUser);
+        Set<Integer> bookmarks = currentUser.getBookmarkedTmdbIds();
+        bookmarks.add(tmdbId);
+        currentUser.setBookmarkedTmdbIds(bookmarks);
+        userRepository.saveAndFlush(currentUser);
     }
 
     /**
@@ -45,8 +47,10 @@ public class BookmarkService {
     @Transactional
     public void deleteBookmark(Integer tmdbId) {
         User currentUser = getCurrentUser();
-        currentUser.getBookmarkedTmdbIds().remove(tmdbId);
-        userRepository.save(currentUser);
+        Set<Integer> bookmarks = currentUser.getBookmarkedTmdbIds();
+        bookmarks.remove(tmdbId);
+        currentUser.setBookmarkedTmdbIds(bookmarks);
+        userRepository.saveAndFlush(currentUser);
     }
 
     private User getCurrentUser() {

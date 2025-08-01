@@ -10,6 +10,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service class that handles the core business logic for user authentication,
+ * including registration and login.
+ */
 @Service
 public class AuthService {
 
@@ -18,7 +22,14 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    // Gerekli olan Repository, PasswordEncoder, JwtService ve AuthenticationManager constructor injection ile alıyoruz.
+    /**
+     * Constructs the AuthService with required dependencies injected by Spring.
+     *
+     * @param userRepository      Repository for user data access.
+     * @param passwordEncoder     Service for hashing and verifying passwords.
+     * @param jwtService          Service for generating and validating JWTs.
+     * @param authenticationManager Spring Security's manager for handling the authentication process.
+     */
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -27,36 +38,39 @@ public class AuthService {
     }
 
     /**
-     * Yeni bir kullanıcı kaydı oluşturur.
-     * @param request Kayıt için email ve şifre içeren DTO.
-     * @return Kaydedilen User nesnesi.
+     * Registers a new user in the system.
+     *
+     * @param request A DTO containing the new user's email and password.
+     * @return The saved User entity.
+     * @throws IllegalStateException if the email is already in use.
      */
     public User register(AuthRequest request) {
-        // 1. Bu email ile daha önce bir kullanıcı kaydolmuş mu diye kontrol et.
+        // 1. Check if a user with the given email already exists to prevent duplicates.
         if (userRepository.findByEmail(request.email()).isPresent()) {
-            // Eğer varsa, hata fırlat. (Bunu daha sonra özel exception handling ile güzelleştireceğiz)
             throw new IllegalStateException("Email already in use");
         }
 
-        // 2. Yeni bir User nesnesi oluştur.
+        // 2. Create a new User entity.
         User newUser = new User();
         newUser.setEmail(request.email());
-        // 3. Şifreyi ASLA düz metin olarak kaydetme! Her zaman hash'leyerek kaydet.
+        // 3. IMPORTANT: Always encode the password before saving it to the database.
         newUser.setPassword(passwordEncoder.encode(request.password()));
 
-        // 4. Yeni kullanıcıyı veritabanına kaydet ve geri döndür.
+        // 4. Save the new user to the database and return the persisted entity.
         return userRepository.save(newUser);
     }
 
     /**
-     * Kullanıcıyı doğrular ve bir JWT döner.
-     * @param request Login için email ve şifre içeren DTO.
-     * @return Oluşturulan JWT.
+     * Authenticates a user and generates a JWT upon successful login.
+     *
+     * @param request A DTO containing the user's login credentials (email and password).
+     * @return A JWT string for the authenticated user.
      */
     public String login(AuthRequest request) {
-        // 1. Spring Security'nin AuthenticationManager'ını kullanarak kullanıcıyı doğrula.
-        // Bu metot, bizim JpaUserDetailsService'imizi ve PasswordEncoder'ımızı arka planda kullanır.
-        // Eğer email/şifre yanlışsa, burada otomatik olarak bir exception fırlatılır.
+        // 1. Use Spring Security's AuthenticationManager to validate the credentials.
+        //    This will internally use our JpaUserDetailsService to find the user
+        //    and our PasswordEncoder to compare the passwords.
+        //    An exception is automatically thrown if authentication fails.
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email(),
@@ -64,11 +78,11 @@ public class AuthService {
                 )
         );
 
-        // 2. Eğer doğrulama başarılıysa, kullanıcıyı veritabanından bul.
+        // 2. If authentication is successful, retrieve the user details from the database.
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found after successful authentication"));
 
-        // 3. O kullanıcı için bir JWT oluştur ve döndür.
+        // 3. Generate and return a JWT for the authenticated user.
         return jwtService.generateToken(user);
     }
 }
